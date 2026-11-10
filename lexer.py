@@ -2,25 +2,25 @@ from dataclasses import dataclass
 
 @dataclass
 class Token:
-    type: str   # למשל 'NUMBER', 'OP'
-    value: str  # למשל '34', '+'שכ
+    type: str   
+    value: str  
 
 class Tokenizer:
     def __init__(self, text):
         self.text = text
-        self.pos = 0   # איפה אנחנו בטקסט כרגע
+        self.pos = 0   
 
     def tokenize(self):
         tokens = []
         while self.pos < len(self.text):
             ch = self.text[self.pos]
 
-            if ch == ' ':                 # חוק 1: רווח, מדלגים
+            if ch == ' ':                
                 self.pos += 1
-            elif ch in '+-*/=':           # חוק 3: אופרטור, טוקן בודד
+            elif ch in '+-*/=':          
                 tokens.append(Token('OP', ch))
                 self.pos += 1
-            elif ch.isdigit():            # חוק 2: ספרה, קוראים מספר שלם
+            elif ch.isdigit():           
                 tokens.append(self.read_number())
             elif ch.isalpha() or ch == '_':
                 tokens.append(self.read_name())
@@ -31,7 +31,7 @@ class Tokenizer:
                 tokens.append(Token('RPAREN', ch))
                 self.pos += 1
             else:
-                raise SyntaxError(f"תו לא מוכר: {ch!r}")
+                raise SyntaxError(f"Unknown {ch!r}")
         return tokens
 
     def read_number(self):

@@ -40,10 +40,16 @@ class Parser:
         return None
 
     def parse_factor(self):
-        token = self.current()        # הטוקן הנוכחי
-        self.pos += 1     # בכמה מתקדמים?
-        return Number(int(token.value))   # מה שמים בפנים?
+        token = self.current()
 
+        if token.type == 'LPAREN':
+            self.pos += 1                        
+            inner = self.parse_expression()              
+            self.pos += 1                       
+            return inner
+
+        self.pos += 1
+        return Number(int(token.value)) 
 
     def parse_term(self):
         left = self.parse_factor()
@@ -68,6 +74,8 @@ class Parser:
         return left
 
     
-for text in ["2 + 3 * 4", "2 * 3 + 4", "10 - 2 - 3", "8 / 2 * 4"]:
-    tree = Parser(Tokenizer(text).tokenize()).parse_expression()
-    print(text, "=", evaluate(tree))
+if __name__ == "__main__":
+    tokens = Tokenizer("(2 + 3").tokenize()
+    tree = Parser(tokens).parse_expression()
+    print(tree)
+    print(evaluate(tree))
