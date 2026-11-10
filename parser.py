@@ -44,7 +44,9 @@ class Parser:
 
         if token.type == 'LPAREN':
             self.pos += 1                        
-            inner = self.parse_expression()              
+            inner = self.parse_expression()  
+            if self.current() is None or self.current().type != 'RPAREN':
+                raise SyntaxError("Expected ')'")            
             self.pos += 1                       
             return inner
 
@@ -73,9 +75,12 @@ class Parser:
 
         return left
 
+    def parse(self):
+        tree = self.parse_expression()
+        if self.current() is not None:
+            raise SyntaxError(f"Unexpected token: {self.current().value!r}")
+        return tree
     
-if __name__ == "__main__":
-    tokens = Tokenizer("(2 + 3").tokenize()
-    tree = Parser(tokens).parse_expression()
-    print(tree)
-    print(evaluate(tree))
+for text in ["2 + 3", "2 3", "2 + 3 4"]:
+    tree = Parser(Tokenizer(text).tokenize()).parse()
+    print(text, "=", evaluate(tree))

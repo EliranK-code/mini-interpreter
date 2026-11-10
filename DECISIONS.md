@@ -70,6 +70,29 @@ Every design choice in this project: what was chosen, what the alternatives were
 - **Why:** each function keeps going only while it sees its own operators, and asks the level below for its operands. `parse_term` finishes first and returns a whole multiplication group; `parse_expression` finishes last and wraps those groups, so `+` always ends up above `*`. Precedence comes from the structure of the code, not from explicit rules.
 - **Associativity:** the loop `left = BinOp(left, op, right)` wraps everything built so far as the new left child, which gives left associativity: `10 - 2 - 3` is `(10 - 2) - 3 = 5`.
 
+### Parentheses are handled in `parse_factor`
+- **Decision:** when `parse_factor` sees `LPAREN`, it parses a full expression and returns it as a single factor.
+- **Why:** from the outside, `(2 + 3)` behaves like one value. In `(2 + 3) * 4`, the multiplication only needs "one thing" on its left, and providing one thing is exactly the job of `parse_factor`. Handling parentheses at the lowest level gives them the highest precedence.
+
+### Inside parentheses, call `parse_expression`, not `parse_term`
+- **Decision:** the contents of parentheses are parsed with `parse_expression`, the top of the chain.
+- **Alternative:** `parse_term`.
+- **Why:** parentheses can contain any expression. `parse_term` only knows `*` and `/`, so on `(2 + 3)` it would stop at `+`. It works on `(2 * 3)`, which makes this a bug that only shows up on some inputs. Calling back up to `parse_expression` is the "recursive" in recursive descent, and it is what allows nesting like `((2 + 3) * 4)`.
+
+### Parentheses do not appear in the tree
+- **Decision:** `parse_factor` returns the inner tree as is, without wrapping it in a node.
+- **Why:** parentheses only tell the parser how to shape the tree. Once the shape is built, `(2 + 3) * 4` is fully described by `+` sitting below `*`, and the evaluator needs nothing more.
+
+### Require a closing `)` instead of skipping a token
+- **Decision:** after the inner expression, check that the current token is `RPAREN`, otherwise raise `SyntaxError("Expected ')'")`.
+- **Alternative:** blindly advance past whatever token is there.
+- **Why:** fail loudly. Blindly skipping would accept `(2 + 3` and silently mis-parse the wrong-`parse_term` bug above. The `is None` check comes first because of short-circuit evaluation: `None` has no `.type`.
+
+### A single `parse()` entry point that rejects leftover tokens
+- **Decision:** callers use `parse()`, which runs `parse_expression()` and then checks that `current()` is `None`. Otherwise it raises `SyntaxError("Unexpected token: ...")`.
+- **Alternative:** call `parse_expression()` directly.
+- **Why:** `parse_expression()` stops as soon as it sees a token it does not handle and returns whatever it has built. On `"2 3"` it returns `2` and silently ignores the `3`; on `"2 + 3 4"` it returns `5`. A wrong answer that looks right is worse than an error, because nothing tells the user something is off. `parse()` also gives the parser one public entry point, so callers do not need to know about the internal `parse_*` levels.
+
 ### A `current()` helper that returns `None` at the end
 - **Decision:** every parsing function reads the current token through `current()`, which returns `None` when tokens run out.
 - **Alternative:** index `self.tokens[self.pos]` directly in each function.

@@ -15,7 +15,7 @@ turning raw text into tokens, tokens into a syntax tree, and a syntax tree into 
 | Tokenizer (text → tokens) | `lexer.py` | ✅ Done |
 | AST nodes + Evaluator (tree → result) | `parser.py` | ✅ Done |
 | Parser (tokens → tree) for `+ - * /` | `parser.py` | ✅ Done |
-| Parentheses in the parser | `parser.py` | 🚧 In progress |
+| Parentheses in the parser | `parser.py` | ✅ Done |
 | Variables and assignment | | ⏳ Planned |
 
 ## How it works
@@ -64,7 +64,8 @@ parse_expression   handles + and -
     ↓
 parse_term         handles * and /
     ↓
-parse_factor       handles numbers
+parse_factor       handles numbers and ( ... )
+    ↺ calls parse_expression again inside parentheses
 ```
 
 Each function keeps consuming tokens only while it sees its own operators,
@@ -72,12 +73,17 @@ which keeps multiplication deeper in the tree than addition.
 
 ```python
 >>> tokens = Tokenizer("2 + 3 * 4").tokenize()
->>> tree = Parser(tokens).parse_expression()
+>>> tree = Parser(tokens).parse()
 >>> tree
 BinOp(left=Number(value=2), op='+', right=BinOp(left=Number(value=3), op='*', right=Number(value=4)))
 >>> evaluate(tree)
 14
+
+>>> Parser(Tokenizer("2 + 3 4").tokenize()).parse()
+SyntaxError: Unexpected token: '4'
 ```
+
+Invalid input is rejected with a clear error instead of being silently ignored.
 
 ## Project structure
 
