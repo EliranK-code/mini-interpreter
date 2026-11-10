@@ -104,6 +104,43 @@ Every design choice in this project: what was chosen, what the alternatives were
 
 ---
 
+## Variables
+
+### The environment is a dictionary
+- **Decision:** variable values are stored in a `dict` that maps names to values.
+- **Alternative:** a list of `(name, value)` pairs.
+- **Why:** a list would need a linear search on every lookup. A dictionary is a hash table, so looking up a name takes O(1) on average.
+
+### Pass the environment into `evaluate` as a parameter
+- **Decision:** `evaluate(node, env)`; the caller creates `env` once and every recursive call passes it on.
+- **Alternatives:** create the dictionary inside `evaluate`, or use a global variable.
+- **Why:** a dictionary created inside `evaluate` would start empty on every call, so `x` from one line would be gone on the next. A global would work, but any code could change it unnoticed, and it would be impossible to run two independent evaluations. As a parameter, it is explicit who uses it, and each caller can have its own environment.
+
+### Reading a variable: a `Name` node
+- **Decision:** a new leaf type `Name(name)`, created by `parse_factor` for `NAME` tokens, and looked up by `evaluate`.
+- **Why:** from the parser's point of view a variable is "one complete thing", just like a number, so it belongs in `parse_factor`. Its name stays a string; the value is only known at evaluation time. Everything else (precedence, parentheses) kept working without changes.
+
+### A clear error for undefined variables
+- **Decision:** check `node.name in env` and raise `NameError("Undefined variable: ...")`.
+- **Alternative:** let `env[node.name]` raise `KeyError`.
+- **Why:** `KeyError` describes how the interpreter is built inside, not what the user did wrong. The error should speak the user's language, as Python's own `name 'z' is not defined` does.
+
+### Writing a variable: an `Assign` node with a plain string target
+- **Decision:** `Assign(name: str, value: expression)`. `evaluate` computes `value`, stores it in `env[name]`, and returns it.
+- **Alternative:** use a `Name` node as the left side.
+- **Why:** the same `x` has opposite roles. On the right of `=` it is a source to read from; on the left it is a destination to write to and may not exist yet. A `Name` node would be evaluated, i.e. read, and fail with "Undefined variable" for the very variable being created.
+- **Returning the value:** so the caller can show what was stored (`x = 2 + 3 → 5`). Python's own prompt prints nothing after an assignment; this is a deliberate difference.
+
+### Detect assignment with one token of lookahead
+- **Decision:** a `peek()` helper returns the token after the current one. `parse()` treats the line as an assignment only if it starts with a `NAME` token followed by a token whose value is `=`.
+- **Why:** `x = 5` and `x * 2` both start with `x`; only the next token tells them apart. The check uses `.value` rather than `.type`, because `=` and `*` both have type `OP`. After recognising an assignment the parser advances by two tokens, consuming both the name and the `=`.
+
+### Check node types before reaching the `BinOp` code
+- **Decision:** in `evaluate`, the `Number`, `Name` and `Assign` branches all come before `left = evaluate(node.left, env)`.
+- **Why:** that code assumes a `BinOp` with `left` and `right` fields. Any other node type that reached it would crash.
+
+---
+
 ## Tooling
 
 ### `if __name__ == "__main__":` around test code
