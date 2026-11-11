@@ -98,7 +98,7 @@ which keeps multiplication deeper in the tree than addition.
 >>> tree = Parser(tokens).parse()
 >>> tree
 BinOp(left=Number(value=2), op='+', right=BinOp(left=Number(value=3), op='*', right=Number(value=4)))
->>> evaluate(tree)
+>>> evaluate(tree, {})
 14
 
 >>> Parser(Tokenizer("2 + 3 4").tokenize()).parse()
