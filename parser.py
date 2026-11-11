@@ -69,6 +69,9 @@ class Parser:
     def parse_factor(self):
         token = self.current()
 
+        if token is None:
+            raise SyntaxError("Unexpected end of input")
+
         if token.type == 'LPAREN':
             self.pos += 1                        
             inner = self.parse_expression()  
@@ -118,7 +121,13 @@ class Parser:
         if self.current() is not None:
             raise SyntaxError(f"Unexpected token: {self.current().value!r}")
         return tree
-    
+
+def run(text, env):
+    tokens = Tokenizer(text).tokenize()
+    tree = Parser(tokens).parse()
+    return evaluate(tree, env)
+
+
 if __name__ == "__main__":
     env = {}
     for line in ["x = 2 + 3", "y = x * 2", "x + y", "z = (x + y) * 2", "z - 1"]:
