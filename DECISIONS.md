@@ -141,12 +141,63 @@ Every design choice in this project: what was chosen, what the alternatives were
 
 ---
 
+## REPL (`main.py`)
+
+### The REPL lives in its own file
+- **Decision:** `lexer.py` and `parser.py` hold the language; `main.py` holds the interactive prompt.
+- **Why:** the language is a library, and the REPL is just one way to talk to it. Another interface (for example, running a whole file) could be added later without touching the language code.
+
+### A `run(text, env)` helper
+- **Decision:** one function that wraps the whole pipeline: tokenize, parse, evaluate.
+- **Why:** callers do not need to know there are three stages. The REPL, and later the tests, call one function.
+
+### The environment is created once, before the loop
+- **Decision:** `env = {}` comes before `while True`.
+- **Why:** if it were created inside the loop, every line would start with empty memory and `x` from the previous line would be gone.
+
+### Catch only expected error types
+- **Decision:** `except (SyntaxError, NameError, ZeroDivisionError)`.
+- **Alternative:** `except Exception`, which catches everything.
+- **Why:** these are the errors a user can cause with bad input. Catching everything would also hide real bugs in the interpreter. We saw this happen: an empty line caused an `AttributeError`, which revealed a missing check in `parse_factor`. Had it been caught, the bug would have looked like a user error.
+- **Known limitation:** Python itself also raises `NameError` for undefined names in our own code. A leftover typo in the interpreter was once reported as a user error for this reason. A dedicated `InterpreterError` type would remove the overlap.
+
+### Report the end of input clearly
+- **Decision:** `parse_factor` raises `SyntaxError("Unexpected end of input")` when there is no token left.
+- **Why:** inputs such as `2 +`, `(` or an empty line used to crash with `'NoneType' object has no attribute 'type'`, which describes the interpreter's internals rather than the user's mistake.
+
+### Empty lines and leaving the REPL
+- **Decision:** empty lines are skipped with `continue`; `exit`, Ctrl+C and end of input leave with `break`.
+- **Why:** this matches Python's own prompt. The exit check comes before `run`, otherwise `exit` would be evaluated as an undefined variable. `input()` has its own `try`, separate from the one around `run`, because it handles a different kind of event: the user leaving, not the user making a mistake.
+
+---
+
+## Testing (`test_interpreter.py`)
+
+### Automated tests with pytest
+- **Decision:** tests are plain functions named `test_*` in a file named `test_*.py`, run with `pytest`.
+- **Alternative:** checking printed output by eye after every change.
+- **Why:** manual checks are slow and easy to skip. The bug with `and`/`or` in the tokenizer sat unnoticed for a day because no manual check had a name at the end of the input. The whole suite now runs in well under a second.
+
+### Test through `run()`
+- **Decision:** most tests call `run(text, env)` rather than the tokenizer, parser and evaluator separately.
+- **Why:** it checks the full pipeline the user actually goes through, with one short line per case.
+
+### Test that errors are raised, not only that results are correct
+- **Decision:** `with pytest.raises(...)` checks that bad input produces the right error type.
+- **Why:** failing correctly is part of the language's behaviour. A change that made `"2 3"` silently return `2` again would otherwise go unnoticed.
+
+### A regression test for every bug found
+- **Decision:** each bug fixed during development has its own test: a name at the end of the input, leftover tokens, a missing `)`, an undefined variable, division by zero, and empty input.
+- **Why:** a bug that happened once can happen again. When the `and`/`or` bug was deliberately reintroduced, two tests failed immediately, including `test_undefined_variable`, which had not been written with that bug in mind but also ends with a name.
+
+---
+
 ## Tooling
 
 ### `if __name__ == "__main__":` around test code
 - **Decision:** each module's test prints run only when the file is executed directly.
 - **Why:** `parser.py` imports `lexer.py`, and Python runs a module's top-level code on import. Without the guard, every run of the parser would also print the lexer's test output.
 
-### `.gitignore` with `__pycache__/`
-- **Decision:** exclude Python's bytecode cache from version control.
-- **Why:** it is generated automatically on every import, differs between machines and Python versions, and carries no information that is not already in the source.
+### `.gitignore` with `__pycache__/` and `.pytest_cache/`
+- **Decision:** exclude Python's bytecode cache and pytest's cache from version control.
+- **Why:** both are generated automatically, differ between machines, and carry no information that is not already in the source.
